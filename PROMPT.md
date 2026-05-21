@@ -135,6 +135,14 @@ services:
 
 `DATABASE_URL` must be wired from the database via `fromDatabase` — participants never copy/paste a connection string.
 
+**Use these exact service names — do not rename or "improve" them:**
+
+- Database: `ai-workshop-db`
+- Web service: `ai-workshop-web`
+- `databaseName: app`, `user: app`
+
+Render matches resources by name on every Blueprint sync. Changing any of these names on a re-deploy makes Render **provision new services next to the old ones** (with a new `DATABASE_URL`), instead of updating the existing ones — which both burns the free-tier quota and orphans the previous database. The `fromDatabase.name` value must stay in lockstep with the `databases[].name` value.
+
 ## .gitignore
 
 ```
