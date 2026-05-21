@@ -6,7 +6,7 @@ Build a minimal full-stack project template that someone can download, customize
 
 - **Frontend:** React via Vite (JavaScript, not TypeScript — keep it simple)
 - **Backend:** Node.js with Express, ES modules (`"type": "module"`)
-- **Database:** dual driver — **SQLite for local dev**, **PostgreSQL on Render**. The backend auto-detects which to use from `DATABASE_URL`.
+- **Database:** **Sequelize ORM** with two dialects — **SQLite for local dev**, **PostgreSQL on Render**. The backend picks the dialect at startup from `DATABASE_URL` (same env var in both environments).
 - **Deploy target:** Render free tier (free web service + free Postgres), provisioned via `render.yaml` (Blueprint).
 - **Docker:** only used by Render's build. Local dev must work without Docker installed.
 
@@ -38,15 +38,15 @@ Build a minimal full-stack project template that someone can download, customize
 
 - Express server, listens on `PORT` env (default `3001`).
 - ES modules.
-- `db.js` exports `query(sql, params)` and `dbKind`. Picks driver at startup:
-  - If `DATABASE_URL` starts with `postgres://` or `postgresql://` → use `pg` Pool. In production, enable SSL with `rejectUnauthorized: false` (Render's Postgres needs this).
-  - Otherwise → use `better-sqlite3` at `./data.sqlite` (override path via `SQLITE_PATH`).
-- The `query()` API must be **portable across both drivers**:
-  - Use `?` placeholders in SQL. For Postgres, translate them to `$1, $2, ...` inside `query()`.
-  - Return an array of row objects for SELECTs.
-  - For non-SELECT statements on SQLite (`stmt.reader === false`), return `[{ changes, lastInsertRowid }]`.
+- **All database access must go through Sequelize.** No raw `pg` Pool, no raw `better-sqlite3` calls, no hand-written SQL placeholders in app code.
+- `db.js` constructs and exports a single `sequelize` instance (plus `dbKind` for logging). The instance is configured from one place — the `DATABASE_URL` env var:
+  - If `DATABASE_URL` starts with `postgres://` or `postgresql://` → `new Sequelize(process.env.DATABASE_URL, { dialect: "postgres", ... })`. In production, set `dialectOptions: { ssl: { require: true, rejectUnauthorized: false } }` (Render's Postgres needs this).
+  - Otherwise → `new Sequelize({ dialect: "sqlite", storage: process.env.SQLITE_PATH || "./data.sqlite" })`.
+  - `dbKind` is `"postgres"` or `"sqlite"` based on the branch taken.
+- Disable Sequelize's noisy SQL `logging` (set `logging: false`).
+- Models, if/when participants add them, must be defined via `sequelize.define(...)` or class `Model.init(...)`. The health check below is the only query the template itself runs.
 - Endpoints:
-  - `GET /api/health` — runs `SELECT 1`, returns `{ status: "ok", db: dbKind }` on success, 500 with error message on failure.
+  - `GET /api/health` — calls `sequelize.authenticate()` (preferred) or `sequelize.query("SELECT 1")` via Sequelize, returns `{ status: "ok", db: dbKind }` on success, 500 with error message on failure.
   - `GET /api/hello` — returns `{ message: "Hello from the backend 👋" }`.
 - In production, serve the built frontend:
   - `app.use(express.static(path.join(__dirname, "public")))`
@@ -55,8 +55,8 @@ Build a minimal full-stack project template that someone can download, customize
 
 ### Backend dependencies
 
-- `express`, `pg` as `dependencies`.
-- `better-sqlite3` as an **`optionalDependency`** — critical. This prevents `npm install` from failing on `node:20-alpine` (no prebuilts for musl). On Render, only Postgres is used, so the missing module is fine.
+- `express`, `sequelize`, `pg`, `pg-hstore` as `dependencies` (Sequelize needs both `pg` and `pg-hstore` for the Postgres dialect).
+- `sqlite3` as an **`optionalDependency`** — critical. Sequelize's SQLite dialect uses the `sqlite3` package, and its native build can fail on `node:20-alpine` (no prebuilts for musl). Marking it optional prevents `npm install` from failing on Render. On Render, only Postgres is used, so the missing module is fine.
 
 ### Backend scripts
 
@@ -99,7 +99,7 @@ Build a minimal full-stack project template that someone can download, customize
 Multi-stage build, base image `node:20-alpine`:
 
 1. **Stage 1 — frontend-build:** copy `frontend/package*.json`, `npm install`, copy rest, `npm run build`.
-2. **Stage 2 — backend-deps:** copy `backend/package*.json`, `npm install --omit=dev`. (better-sqlite3 will fail silently here — that's by design.)
+2. **Stage 2 — backend-deps:** copy `backend/package*.json`, `npm install --omit=dev`. (The optional `sqlite3` may fail silently here — that's by design; Render uses Postgres.)
 3. **Stage 3 — runtime:**
    - `NODE_ENV=production`, `PORT=3001`.
    - Copy `backend/` source, `backend/node_modules` from stage 2, and the built frontend (`frontend/dist`) into `backend/public/`.
@@ -173,11 +173,11 @@ Do **not** include a "Run with Docker locally" section. Docker is for Render onl
 ## Constraints / non-goals
 
 - No TypeScript.
-- No ORM (Prisma/Drizzle/etc.) — raw SQL via the `query()` helper. Participants can add an ORM if they want.
+- **Sequelize is the only DB access path.** Do not introduce a second ORM (Prisma/Drizzle/etc.), and do not bypass Sequelize with raw `pg`/`sqlite3` calls.
 - No auth, no sessions, no routing library — this is a starting template, not an app.
 - No tests, no linter config, no CI. Keep the file count low.
-- No example tables or seed data — the `query("SELECT 1")` in the health check is the only SQL.
-- Don't add comments that explain *what* the code does. One short comment at the top of `db.js` explaining *why* there are two drivers is fine.
+- No example models, tables, or seed data — the health-check `authenticate()` is the only DB call.
+- Don't add comments that explain *what* the code does. One short comment at the top of `db.js` explaining *why* the dialect is picked from `DATABASE_URL` (so the same config works locally and on Render) is fine.
 
 ## Verification before declaring done
 
