@@ -1,9 +1,11 @@
 import express from "express";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import path from "path";
+import { fileURLToPath } from "url";
 import { sequelize, dbKind } from "./db.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -31,5 +33,5 @@ if (process.env.NODE_ENV === "production") {
 }
 
 app.listen(PORT, () => {
-  console.log(`Server listening on :${PORT} (db: ${dbKind})`);
+  console.log(`server listening on ${PORT} — db: ${dbKind}`);
 });

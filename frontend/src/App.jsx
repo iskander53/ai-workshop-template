@@ -1,48 +1,58 @@
 import { useEffect, useState } from "react";
 
-function useEndpoint(path) {
+function useApi(path) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(path, { cache: "no-store" })
+    fetch(path)
       .then(async (r) => {
-        const text = await r.text();
-        if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${text.slice(0, 120)}`);
-        try {
-          return JSON.parse(text);
-        } catch {
-          throw new Error(`Non-JSON response: ${text.slice(0, 120)}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((json) => {
+        if (!cancelled) {
+          setData(json);
+          setLoading(false);
         }
       })
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch((e) => { if (!cancelled) setError(e.message); });
-    return () => { cancelled = true; };
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.message);
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [path]);
 
-  return { data, error };
+  return { data, error, loading };
 }
 
-function Endpoint({ path }) {
-  const { data, error } = useEndpoint(path);
+function Card({ title, state }) {
   return (
-    <section className="card">
-      <h2>{path}</h2>
-      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
-      {error && <pre className="error">{error}</pre>}
-      {!data && !error && <pre>loading…</pre>}
-    </section>
+    <div className="card">
+      <h2>{title}</h2>
+      {state.loading && <p className="muted">loading…</p>}
+      {state.error && <p className="error">error: {state.error}</p>}
+      {state.data && <pre>{JSON.stringify(state.data, null, 2)}</pre>}
+    </div>
   );
 }
 
 export default function App() {
+  const hello = useApi("/api/hello");
+  const health = useApi("/api/health");
+
   return (
-    <main className="container">
+    <main>
       <h1>AI Workshop Template</h1>
-      <p className="subtitle">React + Express + Sequelize, deployable free on Render.</p>
-      <Endpoint path="/api/hello" />
-      <Endpoint path="/api/health" />
+      <p className="muted">React + Express + Sequelize</p>
+      <Card title="/api/hello" state={hello} />
+      <Card title="/api/health" state={health} />
     </main>
   );
 }

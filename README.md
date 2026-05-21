@@ -1,13 +1,13 @@
 # AI Workshop Template
 
-A minimal full-stack starter: React (Vite) frontend, Node.js/Express backend, Sequelize ORM with SQLite for local dev and Postgres on Render. Designed to be downloaded, customized with AI tools, and deployed free on [Render](https://render.com).
+A minimal full-stack starter — React (Vite) frontend, Express backend, Sequelize ORM (SQLite locally, Postgres on Render) — that deploys free on Render via a Blueprint.
 
 ## Stack
 
-- **Frontend:** React 18 + Vite 5 (JavaScript)
-- **Backend:** Node.js + Express (ES modules)
-- **Database:** Sequelize ORM — **SQLite locally**, **Postgres on Render** (picked at startup from `DATABASE_URL`)
-- **Deploy:** Render free tier via `render.yaml` Blueprint (Docker)
+- **Frontend:** React 18 + Vite (JavaScript)
+- **Backend:** Node.js + Express, ES modules
+- **Database:** Sequelize ORM — SQLite for local dev, PostgreSQL on Render. Dialect is picked at startup from `DATABASE_URL`.
+- **Deploy:** Render free tier (free web service + free Postgres) via `render.yaml`.
 
 ## Project structure
 
@@ -35,43 +35,41 @@ A minimal full-stack starter: React (Vite) frontend, Node.js/Express backend, Se
 
 ## Local development
 
-No database to install — SQLite is built in. Run the backend and frontend in two terminals.
+No database to install — SQLite is built in and the backend creates `backend/data.sqlite` on first run.
 
-**Terminal 1 — backend:**
+Open two terminals.
 
-```bash
+Terminal 1 — backend:
+
+```
 cd backend
 npm install
 npm run dev
 ```
 
-Backend boots on `http://localhost:3001` and creates `backend/data.sqlite` on first run.
+Terminal 2 — frontend:
 
-**Terminal 2 — frontend:**
-
-```bash
+```
 cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api/*` to the backend.
+Open http://localhost:5173.
 
 ## Deploy to Render
 
 1. Push this repo to GitHub.
-2. In Render, click **New → Blueprint** and connect the repo. Render reads `render.yaml` and provisions:
-   - `ai-workshop-db` — free Postgres
-   - `ai-workshop-web` — free Docker web service, with `DATABASE_URL` wired from the database
-3. Wait for the first build. The web service serves the built React app and the API from the same origin.
+2. In Render: **New → Blueprint**, connect the repo. Render reads `render.yaml` and provisions the web service + free Postgres database.
+3. `DATABASE_URL` is wired from the database automatically — nothing to copy/paste.
 
-Notes:
+Notes on the free tier:
 
-- Render's free web service sleeps after inactivity, with a ~30s cold start on the next request.
-- Render's free Postgres expires 30 days after creation — re-provision via Blueprint if needed.
+- The web service sleeps after inactivity, so the first request after idle takes ~30s.
+- Render's free Postgres database expires 30 days after creation.
 
 ## Endpoints
 
-- `GET /api/health` — `{ "status": "ok", "db": "sqlite" | "postgres" }`
-- `GET /api/hello` — `{ "message": "Hello from the backend 👋" }`
-- `GET /*` (production only) — serves the built React app
+- `GET /api/health` — checks the DB connection, returns `{ status, db }`.
+- `GET /api/hello` — returns a hello-world JSON message.
+- `GET /*` (production only) — serves the built React app.

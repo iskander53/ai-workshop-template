@@ -75,7 +75,7 @@ Build a minimal full-stack project template that someone can download, customize
   - Proxy `/api` → `http://localhost:3001`.
   - Build output to `dist/`.
 - `src/App.jsx` is a simple smoke-test page:
-  - On mount, fetches `/api/hello` and `/api/health` and displays both.
+  - Fetches `/api/hello` and `/api/health` **independently** , each with its own loading/error state so a flake on one request doesn't blank the other.
   - Inline styling via `src/styles.css` — dark theme is fine, keep CSS minimal (~30 lines).
 - `src/main.jsx` mounts `<App />` into `#root` with `React.StrictMode`.
 

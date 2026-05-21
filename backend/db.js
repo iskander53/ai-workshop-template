@@ -3,7 +3,7 @@
 import { Sequelize } from "sequelize";
 
 const url = process.env.DATABASE_URL;
-const isPostgres = url && (url.startsWith("postgres://") || url.startsWith("postgresql://"));
+const isPostgres = !!url && /^postgres(ql)?:\/\//.test(url);
 
 export const dbKind = isPostgres ? "postgres" : "sqlite";
 
